@@ -1,4 +1,5 @@
 #include "window.h"
+#include "input.h"
 #include "layout.h"
 #include "menu.h"
 #include "render.h"
@@ -8,14 +9,13 @@
 
 static const wchar_t* const CLASS_NAME = L"FuhajinWidget";
 
-// 最近一帧读数。窗口是唯一的采样触发者，渲染只听它的。
 static Metrics s_metrics;
 static bool s_valid;
 
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE:
-        MetricsSample(&s_metrics);   // 只是打点基线，这一帧没有值
+        MetricsSample(&s_metrics);
         SetTimer(hwnd, TIMER_SAMPLE, INTERVAL_MS[g_set.interval], NULL);
         return 0;
     case WM_TIMER:
@@ -24,8 +24,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             RenderCard(hwnd, s_metrics, s_valid);
         }
         return 0;
-    case WM_RBUTTONUP:
-        switch (MenuShow(hwnd)) {
+    case WM_RBUTTONDOWN:
+        return 0;
+    case WM_RBUTTONUP: {
+        MenuAction act = MenuShow(hwnd);
+        InputSetPass(g_set.effect == EFFECT_ALPHA);
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        switch (act) {
         case MENU_EXIT:
             DestroyWindow(hwnd);
             return 0;
@@ -40,6 +45,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RenderCard(hwnd, s_metrics, s_valid);
         SettingsSave();
         return 0;
+    }
     case WM_SETTINGCHANGE:
     case WM_DPICHANGED: {
         UINT d = LayoutQueryDpi();
@@ -52,6 +58,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_DESTROY:
         KillTimer(hwnd, TIMER_SAMPLE);
+        InputDone();
         PostQuitMessage(0);
         return 0;
     }
@@ -74,6 +81,8 @@ HWND WindowCreate(HINSTANCE instance) {
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_NOACTIVATE,
         CLASS_NAME, L"", WS_POPUP, 0, 0, CARD_W(), CARD_H(), NULL, NULL, instance, NULL);
     if (!hwnd) return NULL;
+    InputInit(hwnd);
+    InputSetPass(g_set.effect == EFFECT_ALPHA);
     RenderCard(hwnd, s_metrics, s_valid);
     return hwnd;
 }

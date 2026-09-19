@@ -1,9 +1,9 @@
 #include "menu.h"
+#include "input.h"
 #include "window.h"
 #include "../app/settings.h"
 #include <wchar.h>
 
-// 命令 ID 分段，每段预留 20 个位子，加档位不用重排。
 enum {
     ID_POS = 1000,
     ID_INTERVAL = 1100,
@@ -15,13 +15,11 @@ enum {
     ID_EXIT = 1700
 };
 
-// 取值即下标（pos / interval / theme / font）
 static void AppendByIndex(HMENU m, int idBase, const wchar_t* const* names, int n, int cur) {
     for (int i = 0; i < n; i++)
         AppendMenuW(m, MF_STRING | (i == cur ? MF_CHECKED : 0), idBase + i, names[i]);
 }
 
-// 取值不是下标（hold 存的是秒数）
 static void AppendByValue(HMENU m, int idBase, const int* vals, const wchar_t* const* names, int n, int cur) {
     for (int i = 0; i < n; i++)
         AppendMenuW(m, MF_STRING | (vals[i] == cur ? MF_CHECKED : 0), idBase + i, names[i]);
@@ -42,9 +40,6 @@ MenuAction MenuShow(HWND hwnd) {
     AppendByIndex(th, ID_THEME, THEME_NAMES, THEME_N, g_set.theme);
     AppendMenuW(root, MF_POPUP, (UINT_PTR)th, L"主题");
 
-    // 卡片效果：实体卡片 / 半透明 → 透明度档位。
-    // 半透明是子菜单项而不是可选项 —— 挑任一档位即切到半透明，
-    // 所以当前档位直接写进父项标题，避免依赖子菜单项上的勾。
     HMENU alpha = CreatePopupMenu();
     for (int i = 0; i < ALPHA_N; i++) {
         wchar_t name[8];
@@ -80,12 +75,9 @@ MenuAction MenuShow(HWND hwnd) {
 
     POINT pt;
     GetCursorPos(&pt);
-    LONG ex = GetWindowLongW(hwnd, GWL_EXSTYLE);
-    SetWindowLongW(hwnd, GWL_EXSTYLE, ex & ~(LONG)WS_EX_NOACTIVATE);
-    SetForegroundWindow(hwnd);
+    InputMenuOpen(true);
     int cmd = TrackPopupMenu(root, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
-    PostMessageW(hwnd, WM_NULL, 0, 0);
-    SetWindowLongW(hwnd, GWL_EXSTYLE, ex);
+    InputMenuOpen(false);
     DestroyMenu(root);
 
     MenuAction act = MENU_REPAINT;
@@ -115,7 +107,6 @@ MenuAction MenuShow(HWND hwnd) {
         return MENU_NONE;
     }
 
-    // 菜单模板本身占几百 KB 临时分配，用完立刻还给系统（SELF 行显示的就是这个数）
     SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
     return act;
 }

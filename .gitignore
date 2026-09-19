@@ -1,0 +1,28 @@
+# 构建产物
+widget.exe
+*.o
+*.obj
+*.a
+
+# 运行期配置（右键菜单会就地改写，属于本机状态）
+widget.ini
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+compile_commands.json
+
+# 调试符号与中间产物
+*.pdb
+*.ilk
+*.map
+*.d
+
+# Windows 目录垃圾
+Thumbs.db
+desktop.ini
+
+# 本机会话记忆与工具状态（如需版本化请移除本行）
+.workbuddy/
